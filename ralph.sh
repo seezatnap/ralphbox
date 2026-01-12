@@ -18,10 +18,11 @@ set -euo pipefail
 #   PROMPT_FILE=loop/prompt.md
 #   LOG_FILE=loop/loop.log
 #   ROTATE_LOG=1                 # rotate existing log instead of truncating
-#   CONTINUE_ON_ERROR=0          # set to 1 to keep going after a failed iteration
+#   CONTINUE_ON_ERROR=1          # set to 0 to stop on a failed iteration (default: continue)
 #   NO_FIGLET=0                  # set to 1 to disable figlet banners
 #   NO_UI=0                      # set to 1 to disable the TUI panes
 #   START_ENGINE=claude          # set to "claude" or "codex"
+#   ENGINES=claude,codex         # which engines to run: "claude", "codex", or "claude,codex"
 #
 # Codex:
 #   CODEX_MODEL=gpt-5.2-codex
@@ -51,6 +52,7 @@ Options:
   -h, --help        Show this help message and exit
   --init            Create loop/ directory and starter prompt.md file
   --start ENGINE    Start with engine: "claude" or "codex"
+  --models MODELS   Which models to run: "claude", "codex", or "claude,codex" (default)
   --disable-danger  Disable dangerous CLI flags for Claude/Codex (for local debug)
 
 Environment variables:
@@ -58,21 +60,24 @@ Environment variables:
   PROMPT_FILE=loop/prompt.md   Path to prompt file
   LOG_FILE=loop/loop.log       Path to log file
   ROTATE_LOG=1                 Rotate existing log instead of truncating
-  CONTINUE_ON_ERROR=0          Set to 1 to keep going after failed iteration
+  CONTINUE_ON_ERROR=1          Set to 0 to stop on failed iteration (default: continue)
   NO_FIGLET=0                  Set to 1 to disable figlet banners
   NO_UI=0                      Set to 1 to disable the TUI panes
   START_ENGINE=claude          Starting engine: "claude" or "codex"
+  ENGINES=claude,codex         Which engines to run: "claude", "codex", or "claude,codex"
   CODEX_MODEL=gpt-5.2-codex    Model for Codex
   CODEX_CMD=codex              Codex command
   DISABLE_DANGER=0             Set to 1 or use --disable-danger to skip dangerous flags
   CLAUDE_CMD=claude            Claude command
 
 Examples:
-  ./ralph.sh                           # Use defaults
-  ./ralph.sh --start codex             # Start with Codex
+  ./ralph.sh                           # Use defaults (alternates claude/codex)
+  ./ralph.sh --models claude           # Only run Claude
+  ./ralph.sh --models codex            # Only run Codex
+  ./ralph.sh --start codex             # Start with Codex (alternating)
   ./ralph.sh my-prompt.md              # Custom prompt file
   ./ralph.sh my-prompt.md 10           # Custom prompt, 10 iterations
-  CONTINUE_ON_ERROR=1 ./ralph.sh       # Keep going on failures
+  CONTINUE_ON_ERROR=0 ./ralph.sh       # Stop on first failure
 EOF
   exit 0
 }
@@ -127,6 +132,7 @@ PROMPT
 SHOW_HELP=0
 SHOW_INIT=0
 START_ENGINE="${START_ENGINE:-claude}"
+ENGINES="${ENGINES:-claude,codex}"
 DISABLE_DANGER="${DISABLE_DANGER:-0}"
 POSITIONAL_ARGS=()
 
@@ -147,6 +153,15 @@ while [[ $# -gt 0 ]]; do
       ;;
     --start=*)
       START_ENGINE="${1#*=}"
+      shift
+      ;;
+    --models)
+      [[ $# -ge 2 ]] || die "Missing value for --models (expected 'claude', 'codex', or 'claude,codex')"
+      ENGINES="$2"
+      shift 2
+      ;;
+    --models=*)
+      ENGINES="${1#*=}"
       shift
       ;;
     --disable-danger)
@@ -179,7 +194,7 @@ fi
 
 LOG_FILE="${LOG_FILE:-loop/loop.log}"
 ROTATE_LOG="${ROTATE_LOG:-1}"
-CONTINUE_ON_ERROR="${CONTINUE_ON_ERROR:-0}"
+CONTINUE_ON_ERROR="${CONTINUE_ON_ERROR:-1}"
 NO_FIGLET="${NO_FIGLET:-0}"
 NO_UI="${NO_UI:-0}"
 
@@ -969,8 +984,22 @@ trap on_exit EXIT
 [[ "$ITERATION_COUNT" =~ ^[0-9]+$ ]] || die "Iteration count must be an integer (got: $ITERATION_COUNT)"
 [[ "$START_ENGINE" == "claude" || "$START_ENGINE" == "codex" ]] || die "START_ENGINE must be 'claude' or 'codex' (got: $START_ENGINE)"
 
-have "$CLAUDE_CMD" || die "Missing required command: $CLAUDE_CMD"
-have "$CODEX_CMD"  || die "Missing required command: $CODEX_CMD"
+# Validate ENGINES and parse into array
+USE_CLAUDE=0
+USE_CODEX=0
+IFS=',' read -ra ENGINE_ARRAY <<< "$ENGINES"
+for eng in "${ENGINE_ARRAY[@]}"; do
+  case "$eng" in
+    claude) USE_CLAUDE=1 ;;
+    codex)  USE_CODEX=1 ;;
+    *)      die "Invalid engine in ENGINES: '$eng' (expected 'claude' or 'codex')" ;;
+  esac
+done
+(( USE_CLAUDE == 1 || USE_CODEX == 1 )) || die "ENGINES must include at least one of 'claude' or 'codex' (got: $ENGINES)"
+
+# Only check for commands that will be used
+(( USE_CLAUDE == 0 )) || have "$CLAUDE_CMD" || die "Missing required command: $CLAUDE_CMD"
+(( USE_CODEX == 0 ))  || have "$CODEX_CMD"  || die "Missing required command: $CODEX_CMD"
 have jq            || die "Missing required command: jq"
 have tee           || die "Missing required command: tee"
 
@@ -1053,6 +1082,18 @@ run_codex_once() {
 
 engine_for_iteration() {
   local iteration="$1"
+
+  # If only one engine is enabled, always use it
+  if (( USE_CLAUDE == 1 && USE_CODEX == 0 )); then
+    printf "claude"
+    return
+  fi
+  if (( USE_CODEX == 1 && USE_CLAUDE == 0 )); then
+    printf "codex"
+    return
+  fi
+
+  # Both engines enabled - alternate based on START_ENGINE
   if [[ "$START_ENGINE" == "claude" ]]; then
     if (( iteration % 2 == 1 )); then
       printf "claude"
@@ -1120,10 +1161,10 @@ for ((i=1; i<=ITERATION_COUNT; i++)); do
     log_json "loop_iteration_failed" "Run failed." "\"iteration\":$i,\"engine\":\"$(json_escape "$(state_get ENGINE)")\""
 
     if [[ "$CONTINUE_ON_ERROR" == "1" ]]; then
-      printf "\n\n[Iteration %d failed; continuing because CONTINUE_ON_ERROR=1]\n" "$i" >&2
+      printf "\n\n[Iteration %d (%s) failed; continuing to next iteration]\n" "$i" "$engine" >&2
       continue
     fi
-    die "Iteration $i failed (set CONTINUE_ON_ERROR=1 to keep going)."
+    die "Iteration $i failed (CONTINUE_ON_ERROR=0 set)."
   fi
 done
 
