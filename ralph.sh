@@ -1042,9 +1042,17 @@ run_claude_once() {
   if [[ "$DISABLE_DANGER" != "1" ]]; then
     claude_args+=(--dangerously-skip-permissions)
   fi
+
+  # Capture output for error checking
+  local tmp_output
+  tmp_output="$(mktemp)"
+
+  # Disable errexit so we can check for errors ourselves
+  set +e
   cat "$PROMPT_FILE" \
     | "$CLAUDE_CMD" "${claude_args[@]}" \
     | tee -a "$LOG_FILE" \
+    | tee "$tmp_output" \
     | jq -rj --unbuffered '
         if (.type=="stream_event" and .event.type=="content_block_delta" and .event.delta.type=="text_delta") then
           (.event.delta.text | gsub("\\r?\\n"; "\n"))
@@ -1057,7 +1065,41 @@ run_claude_once() {
         end
       ' \
     | ui_pipe_main "claude"
+  local pipeline_exit=$?
+  set -e
   printf '\n\n'
+
+  # Check for authentication errors
+  if grep -q '"error":"authentication_failed"' "$tmp_output" 2>/dev/null; then
+    rm -f "$tmp_output"
+    ui_print_status_line "AUTH FAILED: Run 'claude /login' to re-authenticate" "🔐"
+    printf "\n\033[31mError: Authentication failed. Run 'claude /login' to re-authenticate.\033[0m\n" >&2
+    return 1
+  fi
+
+  # Check for rate limit / quota errors
+  if grep -q '"error":"rate_limit"' "$tmp_output" 2>/dev/null || \
+     grep -q '"error":"quota_exceeded"' "$tmp_output" 2>/dev/null; then
+    rm -f "$tmp_output"
+    ui_print_status_line "RATE LIMIT / QUOTA EXCEEDED" "🚫"
+    printf "\n\033[31mError: Rate limit or quota exceeded.\033[0m\n" >&2
+    return 1
+  fi
+
+  # Check for other fatal errors (is_error:true in result)
+  if grep -q '"is_error":true' "$tmp_output" 2>/dev/null; then
+    local error_msg
+    error_msg="$(jq -r 'select(.type=="result" and .is_error==true) | .result // empty' "$tmp_output" 2>/dev/null | head -1)"
+    rm -f "$tmp_output"
+    if [[ -n "$error_msg" ]]; then
+      ui_print_status_line "ERROR: $error_msg" "❌"
+      printf "\n\033[31mError: %s\033[0m\n" "$error_msg" >&2
+    fi
+    return 1
+  fi
+
+  rm -f "$tmp_output"
+  return 0
 }
 
 run_codex_once() {
@@ -1072,12 +1114,55 @@ run_codex_once() {
     codex_args=(exec --dangerously-bypass-approvals-and-sandbox "${codex_args[@]:1}")
   fi
 
+  # Mark log position before running
+  local log_start_line=1
+  [[ -f "$LOG_FILE" ]] && log_start_line=$(( $(wc -l < "$LOG_FILE") + 1 ))
+
   # Run codex and pipe through UI
-  # Include stderr in case of errors, use unbuffered tee
+  # Include stderr in case of errors
+  # Disable errexit so we can check for errors ourselves
+  set +e
   cat "$PROMPT_FILE" \
     | "$CODEX_CMD" "${codex_args[@]}" 2>&1 \
     | tee -a "$LOG_FILE" \
     | ui_pipe_main "codex"
+  local pipeline_exit=$?
+  set -e
+
+  # Check new log lines for errors
+  local new_output
+  new_output="$(tail -n +"$log_start_line" "$LOG_FILE" 2>/dev/null || true)"
+
+  # Check for authentication errors (401 Unauthorized)
+  if printf '%s' "$new_output" | grep -q '401 Unauthorized' || \
+     printf '%s' "$new_output" | grep -q 'Missing bearer or basic authentication'; then
+    ui_print_status_line "AUTH FAILED: Run 'codex login' to re-authenticate" "🔐"
+    printf "\n\033[31mError: Authentication failed. Run 'codex login' to re-authenticate.\033[0m\n" >&2
+    return 1
+  fi
+
+  # Check for rate limit / quota errors
+  if printf '%s' "$new_output" | grep -qi 'rate.limit\|quota\|429\|too many requests'; then
+    ui_print_status_line "RATE LIMIT / QUOTA EXCEEDED" "🚫"
+    printf "\n\033[31mError: Rate limit or quota exceeded.\033[0m\n" >&2
+    return 1
+  fi
+
+  # Check for other API errors
+  if printf '%s' "$new_output" | grep -q 'invalid_request_error'; then
+    local error_msg
+    error_msg="$(printf '%s' "$new_output" | grep -o '"message": *"[^"]*"' | head -1 | sed 's/.*"message": *"//' | sed 's/"$//')"
+    if [[ -n "$error_msg" ]]; then
+      ui_print_status_line "ERROR: $error_msg" "❌"
+      printf "\n\033[31mError: %s\033[0m\n" "$error_msg" >&2
+    else
+      ui_print_status_line "ERROR: Codex API error" "❌"
+      printf "\n\033[31mError: Codex API error\033[0m\n" >&2
+    fi
+    return 1
+  fi
+
+  return 0
 }
 
 engine_for_iteration() {

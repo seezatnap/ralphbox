@@ -211,7 +211,7 @@ docker --context "$CTX" run --rm --user 0:0 \
     chown -R ${AGENT_UID}:${AGENT_GID} /home/agent
     touch /home/agent/.bashrc
     grep -qE '^[[:space:]]*alias[[:space:]]+ralph=' /home/agent/.bashrc || \
-      echo 'alias ralph=\$HOME/.local/bin/ralph' >> /home/agent/.bashrc
+      echo 'alias ralph=/opt/ralph/ralph.sh' >> /home/agent/.bashrc
   " >/dev/null
 
 # --- Start container -----------------------------------------------------------
@@ -238,8 +238,8 @@ run_args=(
   # Persistent auth/config
   -v "${VOL}:/home/agent"
 
-  # Mount your ralph.sh as "ralph" read-only (no chmod/chown needed)
-  -v "${RALPH_SRC}:/home/agent/.local/bin/ralph:ro"
+  # Mount ralph directory (not file) so edits on host don't break the mount
+  -v "${SCRIPT_DIR}:/opt/ralph:ro"
 )
 
 # Mount work folders as /work/dir0, /work/dir1, ...
