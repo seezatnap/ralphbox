@@ -4,6 +4,8 @@
 >
 > This tool runs AI agents with elevated permissions in an automated loop. It can and will modify files, execute commands, and make changes to your system. Running this outside of a sandbox may result in unintended modifications, data loss, or other damage. The authors assume no responsibility for any consequences of using this software.
 
+![ralph](https://github.com/user-attachments/assets/e4792d25-6dfe-453e-b1d2-da586f31d343)
+
 An alternating loop runner that orchestrates interactions between Claude and Codex in an iterative workflow, presenting their responses through a split-pane terminal UI.
 
 ## Overview
