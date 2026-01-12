@@ -15,6 +15,8 @@ Ralphbox consists of two main scripts:
 - **ralph.sh** - A loop runner that alternates between Claude and Codex across multiple iterations, with real-time split-pane terminal display and JSON logging
 - **init.sh** - A sandbox initialization script that sets up a secure Docker-based environment using Lima
 
+<img width="861" height="843" alt="Screenshot 2026-01-12 at 12 53 32 PM" src="https://github.com/user-attachments/assets/098afb5a-c789-46aa-ad34-ecc1b9d26429" />
+
 ## Important: Always Use the Sandbox
 
 **Do not run `ralph.sh` directly on your host machine.** The script runs AI agents with dangerous permission flags that allow them to execute arbitrary commands and modify files without confirmation. Running it outside of a sandbox puts your system at risk.
