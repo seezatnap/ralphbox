@@ -15,7 +15,7 @@ set -euo pipefail
 #
 # Env overrides:
 #   ITERATION_COUNT=50
-#   PROMPT_FILE=loop/prompt.md
+#   PROMPT_FILE=PROMPT.md
 #   LOG_FILE=loop/loop.log
 #   ROTATE_LOG=1                 # rotate existing log instead of truncating
 #   CONTINUE_ON_ERROR=1          # set to 0 to stop on a failed iteration (default: continue)
@@ -45,19 +45,20 @@ Usage: ./ralph.sh [OPTIONS] [prompt_file] [iteration_count]
 Alternating Claude <-> Codex loop runner with split-pane TUI.
 
 Arguments:
-  prompt_file       Path to prompt file (default: loop/prompt.md)
+  prompt_file       Path to prompt file (default: PROMPT.md)
   iteration_count   Number of iterations to run (default: 50)
 
 Options:
   -h, --help        Show this help message and exit
-  --init            Create loop/ directory and starter prompt.md file
+  --init            Create loop/ directory and starter files
+  --force           Overwrite existing files when using --init
   --start ENGINE    Start with engine: "claude" or "codex"
   --models MODELS   Which models to run: "claude", "codex", or "claude,codex" (default)
   --disable-danger  Disable dangerous CLI flags for Claude/Codex (for local debug)
 
 Environment variables:
   ITERATION_COUNT=50           Number of iterations
-  PROMPT_FILE=loop/prompt.md   Path to prompt file
+  PROMPT_FILE=PROMPT.md        Path to prompt file
   LOG_FILE=loop/loop.log       Path to log file
   ROTATE_LOG=1                 Rotate existing log instead of truncating
   CONTINUE_ON_ERROR=1          Set to 0 to stop on failed iteration (default: continue)
@@ -83,8 +84,8 @@ EOF
 }
 
 do_init() {
+  local force="${1:-0}"
   local dir="loop"
-  local prompt_file="$dir/prompt.md"
 
   # Determine the directory where this script is located
   local script_dir
@@ -112,11 +113,15 @@ do_init() {
       [[ -f "$init_file" ]] || continue
       local basename
       basename="$(basename "$init_file")"
-      if [[ -f "$basename" ]]; then
+      if [[ -f "$basename" ]] && [[ "$force" != "1" ]]; then
         printf "File '%s' already exists, skipping.\n" "$basename"
       else
+        if [[ -f "$basename" ]]; then
+          printf "Overwriting: %s\n" "$basename"
+        else
+          printf "Created: %s\n" "$basename"
+        fi
         cp "$init_file" "./$basename"
-        printf "Created: %s\n" "$basename"
       fi
     done
   else
@@ -125,36 +130,15 @@ do_init() {
 
   # Create CLAUDE.md symlink to AGENTS.md (for Claude Code compatibility)
   if [[ -f "AGENTS.md" ]]; then
-    if [[ -L "CLAUDE.md" ]]; then
+    if [[ -L "CLAUDE.md" ]] && [[ "$force" != "1" ]]; then
       printf "Symlink 'CLAUDE.md' already exists, skipping.\n"
-    elif [[ -f "CLAUDE.md" ]]; then
+    elif [[ -f "CLAUDE.md" ]] && [[ ! -L "CLAUDE.md" ]] && [[ "$force" != "1" ]]; then
       printf "File 'CLAUDE.md' already exists (not a symlink), skipping.\n"
     else
+      rm -f CLAUDE.md 2>/dev/null || true
       ln -s AGENTS.md CLAUDE.md
       printf "Created symlink: CLAUDE.md -> AGENTS.md\n"
     fi
-  fi
-
-  if [[ -f "$prompt_file" ]]; then
-    printf "Prompt file '%s' already exists, skipping.\n" "$prompt_file"
-  else
-    cat > "$prompt_file" <<'PROMPT'
-# Task
-
-Describe what you want Claude and Codex to work on here.
-
-## Context
-
-- Add any relevant context
-- File paths, requirements, constraints
-
-## Goals
-
-1. First goal
-2. Second goal
-3. ...
-PROMPT
-    printf "Created starter prompt: %s\n" "$prompt_file"
   fi
 
   printf "\nReady! Edit PROMPT.md with your goals, then run: ./ralph.sh\n"
@@ -165,6 +149,7 @@ PROMPT
 
 SHOW_HELP=0
 SHOW_INIT=0
+FORCE_INIT=0
 START_ENGINE="${START_ENGINE:-claude}"
 ENGINES="${ENGINES:-claude,codex}"
 DISABLE_DANGER="${DISABLE_DANGER:-0}"
@@ -178,6 +163,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --init)
       SHOW_INIT=1
+      shift
+      ;;
+    --force)
+      FORCE_INIT=1
       shift
       ;;
     --start)
@@ -218,7 +207,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 ITERATION_COUNT="${ITERATION_COUNT:-50}"
-PROMPT_FILE="${PROMPT_FILE:-loop/prompt.md}"
+PROMPT_FILE="${PROMPT_FILE:-PROMPT.md}"
 if [[ ${#POSITIONAL_ARGS[@]} -ge 1 ]]; then
   PROMPT_FILE="${POSITIONAL_ARGS[0]}"
 fi
@@ -253,7 +242,7 @@ iso_timestamp() {
 
 # Now that functions are defined, handle --help and --init if requested
 [[ "$SHOW_HELP" == "1" ]] && show_help
-[[ "$SHOW_INIT" == "1" ]] && do_init
+[[ "$SHOW_INIT" == "1" ]] && do_init "$FORCE_INIT"
 
 json_escape() {
   local s="$1"
