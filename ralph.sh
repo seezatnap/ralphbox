@@ -86,6 +86,11 @@ do_init() {
   local dir="loop"
   local prompt_file="$dir/prompt.md"
 
+  # Determine the directory where this script is located
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  local init_files_dir="$script_dir/init_files"
+
   # Initialize git repo if not already one
   if [[ -d ".git" ]]; then
     printf "Git repository already initialized.\n"
@@ -99,6 +104,23 @@ do_init() {
   else
     mkdir -p "$dir"
     printf "Created directory: %s\n" "$dir"
+  fi
+
+  # Copy init_files to project root (AGENTS.md, TASKS.md, PROMPT.md)
+  if [[ -d "$init_files_dir" ]]; then
+    for init_file in "$init_files_dir"/*.md; do
+      [[ -f "$init_file" ]] || continue
+      local basename
+      basename="$(basename "$init_file")"
+      if [[ -f "$basename" ]]; then
+        printf "File '%s' already exists, skipping.\n" "$basename"
+      else
+        cp "$init_file" "./$basename"
+        printf "Created: %s\n" "$basename"
+      fi
+    done
+  else
+    printf "Warning: init_files directory not found at %s\n" "$init_files_dir"
   fi
 
   if [[ -f "$prompt_file" ]]; then
@@ -123,7 +145,7 @@ PROMPT
     printf "Created starter prompt: %s\n" "$prompt_file"
   fi
 
-  printf "\nReady! Edit %s and run: ./ralph.sh\n" "$prompt_file"
+  printf "\nReady! Edit PROMPT.md with your goals, then run: ./ralph.sh\n"
   exit 0
 }
 

@@ -1,6 +1,11 @@
 This is the operational guide for working in an unfamiliar repository.
 Goal: discover how to build, test, lint, and run validations, then use those gates every iteration.
 
+## Related files
+- **PROMPT.md**: Contains the goals and requirements for the current work. Read this first to understand what needs to be accomplished.
+- **SPECS.md**: Detailed specifications derived from PROMPT.md. If PROMPT.md changes or contains requirements not yet captured in SPECS.md, update SPECS.md accordingly.
+- **TASKS.md**: A checklist for tracking progress toward the goals in PROMPT.md. Update this as you complete tasks.
+
 ## Golden rules
 - Do not assume the stack. Discover it from files and existing automation.
 - Prefer existing scripts and tools already used by the repository.
@@ -8,12 +13,15 @@ Goal: discover how to build, test, lint, and run validations, then use those gat
 - Do not commit secrets. Do not print tokens. Do not modify lockfiles unless necessary.
 
 ## First 5 minutes (orientation)
-1) Inspect the root:
+1) Read PROMPT.md to understand the goals for this session.
+2) Review SPECS.md and compare against PROMPT.md. If any requirements in PROMPT.md are missing from SPECS.md, update SPECS.md before proceeding.
+3) Review TASKS.md to see current progress and remaining work.
+4) Inspect the root:
    - ls
    - git status
-2) Read the obvious docs if present:
+5) Read the obvious docs if present:
    - README*, CONTRIBUTING*, docs/*, DEVELOPMENT*, RUNBOOK*
-3) Identify automation that defines “truth”:
+6) Identify automation that defines "truth":
    - .github/workflows/*
    - Makefile
    - package.json scripts
@@ -75,5 +83,6 @@ Run when you touch build, packaging, or deployment paths:
 - One task per commit.
 - Commit only after the Fast validation gate passes.
 - Commit message should explain what changed and why (brief, factual).
+- Update TASKS.md to mark completed items and note any new tasks discovered.
 
-Once you have completed ONE task, stop. Only try to accomplish a singular task.
+Once you have completed ONE task, stop. Only try to accomplish a singular task. Refer back to PROMPT.md if you need to verify alignment with the original goals.
