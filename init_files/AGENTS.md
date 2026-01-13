@@ -6,6 +6,24 @@ Goal: discover how to build, test, lint, and run validations, then use those gat
 - **SPECS.md**: Detailed specifications derived from PROMPT.md. If PROMPT.md changes or contains requirements not yet captured in SPECS.md, update SPECS.md accordingly.
 - **TASKS.md**: A checklist for tracking progress toward the goals in PROMPT.md. Update this as you complete tasks.
 
+## Task management (CRITICAL)
+**Always write TODOs to TASKS.md. Never manage tasks in internal state.**
+
+- TASKS.md is the single source of truth for all task tracking.
+- When planning work, write the task breakdown to TASKS.md immediately.
+- When starting a task, update its status in TASKS.md.
+- When completing a task, mark it done in TASKS.md.
+- When discovering new tasks, add them to TASKS.md.
+- Do not rely on memory or internal state to track progress—if it's not in TASKS.md, it doesn't exist.
+
+Use a simple checkbox format:
+```markdown
+- [ ] Pending task
+- [x] Completed task
+```
+
+**ONE TASK PER SESSION**: Complete only the first unchecked task in TASKS.md, then stop. Leave subsequent tasks for another run. Do not attempt multiple tasks in a single session.
+
 ## Golden rules
 - Do not assume the stack. Discover it from files and existing automation.
 - Prefer existing scripts and tools already used by the repository.
@@ -85,4 +103,13 @@ Run when you touch build, packaging, or deployment paths:
 - Commit message should explain what changed and why (brief, factual).
 - Update TASKS.md to mark completed items and note any new tasks discovered.
 
-Once you have completed ONE task, stop. Only try to accomplish a singular task. Refer back to PROMPT.md if you need to verify alignment with the original goals.
+## Session boundaries (IMPORTANT)
+**Complete exactly ONE task from TASKS.md per session, then STOP.**
+
+- Pick the first unchecked task in TASKS.md.
+- Complete it fully (including validation and commit).
+- Mark it done in TASKS.md.
+- Stop immediately. Do not continue to the next task.
+- Subsequent tasks will be handled in future sessions.
+
+This constraint ensures incremental, reviewable progress and prevents runaway sessions.
