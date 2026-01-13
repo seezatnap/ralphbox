@@ -242,11 +242,10 @@ run_args=(
   -v "${SCRIPT_DIR}:/opt/ralph:ro"
 )
 
-# Mount work folders as /work/dir0, /work/dir1, ...
-i=0
+# Mount work folders using their original names
 for d in "${FOLDERS_ABS[@]}"; do
-  run_args+=( -v "${d}:/work/dir${i}:rw" )
-  i=$((i+1))
+  name="$(basename "$d")"
+  run_args+=( -v "${d}:/work/${name}:rw" )
 done
 
 echo "[+] Starting container: $CONTAINER_NAME"
@@ -264,10 +263,9 @@ echo "  docker --context \"$CTX\" ps"
 echo "  docker --context \"$CTX\" exec -it \"$CONTAINER_NAME\" bash -l"
 echo ""
 echo "Inside the container, your folders are:"
-i=0
 for d in "${FOLDERS_ABS[@]}"; do
-  echo "  /work/dir${i}  ->  ${d}"
-  i=$((i+1))
+  name="$(basename "$d")"
+  echo "  /work/${name}  ->  ${d}"
 done
 echo ""
 echo "\"ralph\" is on PATH:"

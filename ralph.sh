@@ -123,6 +123,18 @@ do_init() {
     printf "Warning: init_files directory not found at %s\n" "$init_files_dir"
   fi
 
+  # Create CLAUDE.md symlink to AGENTS.md (for Claude Code compatibility)
+  if [[ -f "AGENTS.md" ]]; then
+    if [[ -L "CLAUDE.md" ]]; then
+      printf "Symlink 'CLAUDE.md' already exists, skipping.\n"
+    elif [[ -f "CLAUDE.md" ]]; then
+      printf "File 'CLAUDE.md' already exists (not a symlink), skipping.\n"
+    else
+      ln -s AGENTS.md CLAUDE.md
+      printf "Created symlink: CLAUDE.md -> AGENTS.md\n"
+    fi
+  fi
+
   if [[ -f "$prompt_file" ]]; then
     printf "Prompt file '%s' already exists, skipping.\n" "$prompt_file"
   else
