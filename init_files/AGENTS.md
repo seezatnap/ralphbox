@@ -10,6 +10,7 @@ Goal: discover how to build, test, lint, and run validations, then use those gat
 **Always write TODOs to TASKS.md. Never manage tasks in internal state.**
 
 - TASKS.md is the single source of truth for all task tracking.
+- **Create entries in TASKS.md for ALL requirements in PROMPT.md.** Break down the prompt into discrete tasks and add them all upfront—but only complete one task per session.
 - When planning work, write the task breakdown to TASKS.md immediately.
 - When starting a task, update its status in TASKS.md.
 - When completing a task, mark it done in TASKS.md.
