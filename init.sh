@@ -160,10 +160,17 @@ FROM node:20-bookworm-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash ca-certificates curl git jq openssh-client tini \
+    build-essential pkg-config libssl-dev \
   && rm -rf /var/lib/apt/lists/*
 
 # Latest CLIs
 RUN npm install -g @openai/codex @anthropic-ai/claude-code
+
+# Install Rust (system-wide via rustup)
+ENV RUSTUP_HOME=/usr/local/rustup
+ENV CARGO_HOME=/usr/local/cargo
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path \
+  && chmod -R a+rX /usr/local/rustup /usr/local/cargo
 
 # Create 'agent' with a free UID >= 1000 (avoid collisions with base image users)
 RUN set -eux; \
@@ -176,7 +183,7 @@ RUN set -eux; \
     fi
 
 ENV HOME=/home/agent
-ENV PATH=/home/agent/.local/bin:/usr/local/bin:/usr/bin:/bin
+ENV PATH=/home/agent/.local/bin:/usr/local/cargo/bin:/usr/local/bin:/usr/bin:/bin
 ENV TERM=xterm-256color
 WORKDIR /work
 

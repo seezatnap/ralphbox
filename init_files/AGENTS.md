@@ -15,6 +15,7 @@ Goal: discover how to build, test, lint, and run validations, then use those gat
 - When starting a task, update its status in TASKS.md.
 - When completing a task, mark it done in TASKS.md.
 - When discovering new tasks, add them to TASKS.md.
+- When updating TASKS.md, remove completed tasks that are no longer relevant to PROMPT.md. Keep TASKS.md focused on current goals.
 - Do not rely on memory or internal state to track progress—if it's not in TASKS.md, it doesn't exist.
 
 Use a simple checkbox format:
